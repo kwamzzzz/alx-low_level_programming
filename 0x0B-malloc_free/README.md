@@ -20,3 +20,5 @@ and lastly
 Task 6 which asks to "Write a function that splits a string into words." seeks to teach students learn how to manipulate strings to extract words based on certain delimiters, in this case, spaces.
 
 All in all these tasks aim to provide learners with practical experience and understanding of important concepts in programming, particularly in the context of memory management and manipulation of strings and arrays.
+
+Slight update
