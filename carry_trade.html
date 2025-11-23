@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Carry Trade Explainer</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --panel: #111827;
+      --accent: #22d3ee;
+      --accent-2: #f97316;
+      --muted: #94a3b8;
+      --grid: rgba(255, 255, 255, 0.07);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: radial-gradient(circle at 20% 20%, rgba(34, 211, 238, 0.08), transparent 30%),
+        radial-gradient(circle at 80% 0%, rgba(249, 115, 22, 0.08), transparent 25%),
+        var(--bg);
+      color: #e2e8f0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 32px;
+    }
+
+    .card {
+      width: min(1100px, 100%);
+      background: linear-gradient(135deg, rgba(17, 24, 39, 0.9), rgba(17, 24, 39, 0.75));
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+      border-radius: 20px;
+      padding: 28px;
+    }
+
+    header h1 {
+      margin: 0 0 6px;
+      font-size: 28px;
+      letter-spacing: 0.01em;
+    }
+
+    header p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    .grid {
+      margin-top: 22px;
+      display: grid;
+      gap: 18px;
+      grid-template-columns: 2.2fr 1fr;
+      align-items: start;
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 16px;
+      padding: 16px;
+      position: relative;
+    }
+
+    .legend {
+      display: flex;
+      gap: 16px;
+      align-items: center;
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .dot {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+
+    .controls {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      margin-top: 10px;
+      flex-wrap: wrap;
+    }
+
+    button {
+      background: linear-gradient(135deg, #22d3ee, #06b6d4);
+      border: none;
+      color: #0b1222;
+      font-weight: 700;
+      padding: 10px 14px;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: transform 120ms ease, box-shadow 120ms ease;
+      box-shadow: 0 6px 18px rgba(34, 211, 238, 0.35);
+    }
+
+    button.secondary {
+      background: rgba(255, 255, 255, 0.08);
+      color: #e2e8f0;
+      box-shadow: none;
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+    }
+
+    label {
+      font-size: 14px;
+      color: var(--muted);
+    }
+
+    input[type="range"] {
+      accent-color: #22d3ee;
+    }
+
+    .note {
+      font-size: 15px;
+      line-height: 1.6;
+      color: var(--muted);
+    }
+
+    .callouts {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 12px;
+      margin-top: 12px;
+    }
+
+    .pill {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: rgba(34, 211, 238, 0.14);
+      color: #a5f3fc;
+      font-size: 12px;
+      letter-spacing: 0.01em;
+      text-transform: uppercase;
+      font-weight: 700;
+    }
+
+    .stage {
+      font-weight: 700;
+      margin-top: 6px;
+      font-size: 16px;
+    }
+
+    .stage-detail {
+      color: #cbd5e1;
+      line-height: 1.5;
+      margin-top: 4px;
+    }
+
+    @media (max-width: 900px) {
+      .grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <header>
+      <div class="pill">Interactive Macro Visual</div>
+      <h1>Carry Trade: borrowing low, investing high</h1>
+      <p>Follow how traders borrow a low-yield currency to buy a higher-yield one. When risk appetite fades, the same
+        trade unwinds and the high-yield currency falls sharply.</p>
+    </header>
+
+    <div class="grid">
+      <section class="panel">
+        <svg id="chart" viewBox="0 0 960 460" role="img" aria-label="Carry trade price paths">
+          <defs>
+            <linearGradient id="carryArea" x1="0" x2="0" y1="0" y2="1">
+              <stop offset="0%" stop-color="rgba(249, 115, 22, 0.35)" />
+              <stop offset="100%" stop-color="rgba(249, 115, 22, 0)" />
+            </linearGradient>
+            <linearGradient id="fundingArea" x1="0" x2="0" y1="0" y2="1">
+              <stop offset="0%" stop-color="rgba(34, 211, 238, 0.35)" />
+              <stop offset="100%" stop-color="rgba(34, 211, 238, 0)" />
+            </linearGradient>
+            <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+              <path d="M 40 0 L 0 0 0 40" fill="none" stroke="var(--grid)" stroke-width="1" />
+            </pattern>
+          </defs>
+
+          <rect x="60" y="30" width="840" height="360" fill="url(#grid)" rx="12" />
+          <line x1="60" y1="390" x2="900" y2="390" stroke="rgba(148, 163, 184, 0.35)" stroke-width="2" />
+          <line x1="60" y1="30" x2="60" y2="390" stroke="rgba(148, 163, 184, 0.35)" stroke-width="2" />
+          <text x="910" y="396" fill="#94a3b8" font-size="12">time</text>
+          <text x="42" y="28" fill="#94a3b8" font-size="12" transform="rotate(-90 42 28)">price (normalized)</text>
+
+          <path id="funding-area" fill="url(#fundingArea)" opacity="0.6"></path>
+          <path id="carry-area" fill="url(#carryArea)" opacity="0.7"></path>
+          <path id="funding-path" fill="none" stroke="#22d3ee" stroke-width="4" stroke-linecap="round"
+            stroke-dasharray="0 1" />
+          <path id="carry-path" fill="none" stroke="#f97316" stroke-width="4" stroke-linecap="round"
+            stroke-dasharray="0 1" />
+
+          <circle id="carry-dot" r="8" fill="#f97316" stroke="#fff" stroke-width="2" />
+          <circle id="funding-dot" r="8" fill="#22d3ee" stroke="#0b1222" stroke-width="2" />
+
+          <rect id="phase-bar" x="60" y="50" width="160" height="30" rx="8" fill="rgba(255,255,255,0.07)" />
+          <text id="phase-label" x="72" y="70" fill="#e2e8f0" font-size="14" font-weight="700"></text>
+        </svg>
+
+        <div class="legend">
+          <span class="dot" style="background:#f97316"></span> High-yield currency (carry target)
+          <span class="dot" style="background:#22d3ee"></span> Low-yield funding currency
+        </div>
+
+        <div class="controls">
+          <button id="play">Play</button>
+          <button id="reset" class="secondary">Reset</button>
+          <label for="speed">Speed <input id="speed" type="range" min="0.5" max="3" value="1" step="0.1" /></label>
+          <span id="stage-indicator" class="pill" style="background:rgba(249,115,22,0.16); color:#ffedd5;">Risk-on carry
+            build</span>
+        </div>
+      </section>
+
+      <aside class="panel">
+        <div class="pill">How to read</div>
+        <div class="stage" id="stage-title">Carry build-up</div>
+        <div class="stage-detail" id="stage-detail">
+          Borrow the low-yield currency (blue) and buy the high-yield currency (orange). As risk appetite rises, traders
+          push the high-yield currency higher.
+        </div>
+
+        <div class="callouts">
+          <p class="note"><strong>Risk-on phase:</strong> Steady upward slope for the carry target while funding stays
+            flat or softens.</p>
+          <p class="note"><strong>Unwind:</strong> A sharp downward step as positions are closed and capital rushes back
+            to the funding currency.</p>
+          <p class="note"><strong>Interactive:</strong> Play the animation, pause to study the shift, or reset to run the
+            cycle again.</p>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <script>
+    const data = [
+      { label: "Starting point", high: 1.0, low: 1.0, phase: "Neutral", detail: "Both currencies start balanced." },
+      { label: "Carry build", high: 1.05, low: 0.995, phase: "Risk-on carry build", detail: "Borrow funding currency to buy higher yield." },
+      { label: "Yield chase", high: 1.12, low: 0.99, phase: "Risk-on carry build", detail: "Demand for the high-yield currency lifts its price." },
+      { label: "Crowded trade", high: 1.19, low: 0.985, phase: "Position peak", detail: "Positions are full; prices plateau." },
+      { label: "Unwind spark", high: 1.12, low: 0.99, phase: "Unwind begins", detail: "Risk sentiment turns; early exits start." },
+      { label: "Rush for exits", high: 0.96, low: 1.02, phase: "Sharp unwind", detail: "Stop-losses fire, reversing the carry move." },
+      { label: "Return to funding", high: 1.0, low: 1.03, phase: "Reset", detail: "Capital seeks safety in the funding currency." }
+    ];
+
+    const chart = document.getElementById('chart');
+    const carryPath = document.getElementById('carry-path');
+    const fundingPath = document.getElementById('funding-path');
+    const carryArea = document.getElementById('carry-area');
+    const fundingArea = document.getElementById('funding-area');
+    const carryDot = document.getElementById('carry-dot');
+    const fundingDot = document.getElementById('funding-dot');
+    const phaseBar = document.getElementById('phase-bar');
+    const phaseLabel = document.getElementById('phase-label');
+    const stageTitle = document.getElementById('stage-title');
+    const stageDetail = document.getElementById('stage-detail');
+    const stagePill = document.getElementById('stage-indicator');
+    const playBtn = document.getElementById('play');
+    const resetBtn = document.getElementById('reset');
+    const speedInput = document.getElementById('speed');
+
+    const frame = { x: 60, y: 30, width: 840, height: 360 };
+    const minVal = Math.min(...data.flatMap(d => [d.high, d.low]));
+    const maxVal = Math.max(...data.flatMap(d => [d.high, d.low]));
+    const padding = 0.1;
+    const yMin = minVal - padding;
+    const yMax = maxVal + padding;
+
+    let playState = { running: false, position: 0, last: null };
+    let carryLength = 0;
+    let fundingLength = 0;
+
+    function toPath(values, key) {
+      return values.map((d, i) => {
+        const x = frame.x + (i / (values.length - 1)) * frame.width;
+        const y = frame.y + (1 - (d[key] - yMin) / (yMax - yMin)) * frame.height;
+        return `${i === 0 ? 'M' : 'L'} ${x.toFixed(2)} ${y.toFixed(2)}`;
+      }).join(' ');
+    }
+
+    function toArea(values, key) {
+      const path = toPath(values, key);
+      const endX = frame.x + frame.width;
+      const baseY = frame.y + frame.height;
+      return `${path} L ${endX} ${baseY} L ${frame.x} ${baseY} Z`;
+    }
+
+    function drawPaths() {
+      carryPath.setAttribute('d', toPath(data, 'high'));
+      fundingPath.setAttribute('d', toPath(data, 'low'));
+      carryArea.setAttribute('d', toArea(data, 'high'));
+      fundingArea.setAttribute('d', toArea(data, 'low'));
+
+      carryLength = carryPath.getTotalLength();
+      fundingLength = fundingPath.getTotalLength();
+
+      carryPath.setAttribute('stroke-dasharray', `${carryLength} ${carryLength}`);
+      carryPath.setAttribute('stroke-dashoffset', carryLength);
+      fundingPath.setAttribute('stroke-dasharray', `${fundingLength} ${fundingLength}`);
+      fundingPath.setAttribute('stroke-dashoffset', fundingLength);
+    }
+
+    function interpolate(points, key, t) {
+      const i = Math.floor(t);
+      const frac = t - i;
+      const start = points[i];
+      const end = points[Math.min(i + 1, points.length - 1)];
+      return start[key] + (end[key] - start[key]) * frac;
+    }
+
+    function updateScene(position) {
+      const progress = position / (data.length - 1);
+      const carryOffset = carryLength * (1 - progress);
+      const fundingOffset = fundingLength * (1 - progress);
+      carryPath.setAttribute('stroke-dashoffset', carryOffset);
+      fundingPath.setAttribute('stroke-dashoffset', fundingOffset);
+
+      const carryPoint = carryPath.getPointAtLength(carryLength * progress);
+      const fundingPoint = fundingPath.getPointAtLength(fundingLength * progress);
+      carryDot.setAttribute('cx', carryPoint.x);
+      carryDot.setAttribute('cy', carryPoint.y);
+      fundingDot.setAttribute('cx', fundingPoint.x);
+      fundingDot.setAttribute('cy', fundingPoint.y);
+
+      const blended = interpolate(data, 'high', position);
+      const fundingBlended = interpolate(data, 'low', position);
+      const activeStage = data[Math.round(position)];
+
+      const riskPhase = blended > fundingBlended ? 'Risk-on carry build' : 'Unwind to funding';
+      phaseLabel.textContent = riskPhase;
+      stagePill.textContent = activeStage.phase;
+      stageTitle.textContent = activeStage.label;
+      stageDetail.textContent = activeStage.detail;
+
+      const barWidth = 180 + 200 * Math.abs(progress - 0.5);
+      phaseBar.setAttribute('width', barWidth);
+      phaseBar.setAttribute('fill', riskPhase.includes('Unwind') ? 'rgba(34,211,238,0.18)' : 'rgba(249,115,22,0.18)');
+    }
+
+    function step(timestamp) {
+      if (!playState.running) return;
+      if (!playState.last) playState.last = timestamp;
+      const delta = (timestamp - playState.last) / 1000;
+      playState.last = timestamp;
+      const speed = parseFloat(speedInput.value);
+      playState.position += delta * speed;
+      if (playState.position >= data.length - 1) {
+        playState.position = data.length - 1;
+        playState.running = false;
+        playBtn.textContent = 'Replay';
+      }
+      updateScene(playState.position);
+      if (playState.running) requestAnimationFrame(step);
+    }
+
+    function togglePlay() {
+      playState.running = !playState.running;
+      playBtn.textContent = playState.running ? 'Pause' : (playState.position >= data.length - 1 ? 'Replay' : 'Play');
+      if (playState.running) {
+        playState.last = null;
+        requestAnimationFrame(step);
+      }
+    }
+
+    function reset() {
+      playState = { running: false, position: 0, last: null };
+      playBtn.textContent = 'Play';
+      updateScene(0);
+    }
+
+    playBtn.addEventListener('click', togglePlay);
+    resetBtn.addEventListener('click', reset);
+    speedInput.addEventListener('input', () => {
+      speedInput.setAttribute('title', `Speed: ${parseFloat(speedInput.value).toFixed(1)}x`);
+    });
+
+    drawPaths();
+    updateScene(0);
+  </script>
+</body>
+</html>
