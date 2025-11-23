@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>FX Carry Trade Explorable</title>
+<style>
+    :root {
+        --bg: #0f1116;
+        --panel: #151924;
+        --accent: #4ecdc4;
+        --warn: #f25f5c;
+        --text: #e5e9f0;
+        --muted: #8a92a6;
+        --glow: rgba(78, 205, 196, 0.35);
+    }
+    * { box-sizing: border-box; }
+    body {
+        font-family: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+        background: radial-gradient(circle at 20% 20%, rgba(78,205,196,0.07), transparent 35%),
+                    radial-gradient(circle at 80% 10%, rgba(242,95,92,0.07), transparent 40%),
+                    var(--bg);
+        color: var(--text);
+        margin: 0;
+        padding: 24px;
+        line-height: 1.6;
+    }
+    h1 { margin: 0 0 6px; letter-spacing: 0.03em; }
+    .subtitle { color: var(--muted); margin-bottom: 20px; font-variant: small-caps; }
+    .layout { display: grid; grid-template-columns: 1.2fr 1fr; gap: 18px; }
+    .panel {
+        background: linear-gradient(145deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));
+        border: 1px solid rgba(255,255,255,0.05);
+        border-radius: 16px;
+        padding: 16px 18px;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.45);
+    }
+    .panel h2 { margin-top: 0; margin-bottom: 6px; letter-spacing: 0.02em; }
+    .controls { display: grid; gap: 12px; }
+    .control { display: flex; flex-direction: column; gap: 6px; }
+    label { font-size: 0.95rem; color: var(--muted); letter-spacing: 0.01em; }
+    input[type=range] { width: 100%; }
+    .metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 8px; margin-top: 10px; }
+    .metric {
+        background: rgba(255,255,255,0.02);
+        border: 1px solid rgba(255,255,255,0.04);
+        border-radius: 12px;
+        padding: 10px;
+    }
+    .metric .label { color: var(--muted); font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.06em; }
+    .metric .value { font-size: 1.1rem; font-weight: 600; }
+    .regime-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 12px;
+        border-radius: 999px;
+        font-weight: 600;
+        letter-spacing: 0.04em;
+        margin-top: 8px;
+        border: 1px solid rgba(255,255,255,0.08);
+    }
+    .question-block { margin-top: 16px; }
+    .question { font-weight: 600; margin-bottom: 8px; }
+    .answers { display: flex; gap: 8px; flex-wrap: wrap; }
+    .answer-btn {
+        border: 1px solid rgba(255,255,255,0.08);
+        background: rgba(255,255,255,0.04);
+        color: var(--text);
+        padding: 8px 10px;
+        border-radius: 10px;
+        cursor: pointer;
+        transition: background 0.15s ease, transform 0.1s ease;
+    }
+    .answer-btn:hover { background: rgba(255,255,255,0.08); transform: translateY(-1px); }
+    .feedback { margin-top: 8px; font-weight: 600; }
+    .feedback.good { color: #8be9c2; }
+    .feedback.bad { color: #f48fb1; }
+    svg { width: 100%; height: 420px; }
+    .legend { display: flex; gap: 14px; color: var(--muted); font-size: 0.9rem; margin-top: 6px; }
+    .legend span { display: inline-flex; align-items: center; gap: 6px; }
+    .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+</style>
+</head>
+<body>
+    <h1>FX Carry Trade – Explorable</h1>
+    <div class="subtitle">Think like a macro PM: balance carry, risk sentiment, and unwind pressure.</div>
+
+    <div class="layout">
+        <div class="panel">
+            <h2>Rates &amp; Risk Controls</h2>
+            <div class="controls">
+                <div class="control">
+                    <label for="rateDiff">Interest-rate differential (HY – funding): <span id="rateLabel">4.0%</span></label>
+                    <input type="range" id="rateDiff" min="-2" max="10" value="4" step="0.1">
+                </div>
+                <div class="control">
+                    <label for="riskSentiment">Global risk sentiment: <span id="riskLabel">60</span></label>
+                    <input type="range" id="riskSentiment" min="0" max="100" value="60" step="1">
+                </div>
+            </div>
+            <div class="metrics">
+                <div class="metric">
+                    <div class="label">Gross Carry</div>
+                    <div class="value" id="grossCarry">4.0%</div>
+                </div>
+                <div class="metric">
+                    <div class="label">Risk Penalty</div>
+                    <div class="value" id="riskPenalty">-1.2%</div>
+                </div>
+                <div class="metric">
+                    <div class="label">Risk-Adjusted Carry</div>
+                    <div class="value" id="adjustedCarry">2.8%</div>
+                </div>
+                <div class="metric">
+                    <div class="label">Carry Score</div>
+                    <div class="value" id="carryScore">58</div>
+                </div>
+            </div>
+            <div id="regime" class="regime-badge">Neutral / tactical carry</div>
+            <div class="legend">
+                <span><span class="dot" style="background: var(--muted);"></span>Funding (e.g., JPY)</span>
+                <span><span class="dot" style="background: var(--accent);"></span>High-yield leg</span>
+                <span><span class="dot" style="background: var(--warn);"></span>Unwind pressure</span>
+            </div>
+        </div>
+        <div class="panel">
+            <h2>Flow Map</h2>
+            <svg id="carrySvg" viewBox="0 0 600 420">
+                <defs>
+                    <linearGradient id="carryGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                        <stop offset="0%" stop-color="var(--accent)" stop-opacity="0.15" />
+                        <stop offset="100%" stop-color="var(--accent)" stop-opacity="0.7" />
+                    </linearGradient>
+                    <linearGradient id="unwindGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                        <stop offset="0%" stop-color="var(--warn)" stop-opacity="0.75" />
+                        <stop offset="100%" stop-color="var(--warn)" stop-opacity="0.3" />
+                    </linearGradient>
+                    <marker id="arrowHead" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+                        <path d="M0 0 L10 5 L0 10 z" fill="var(--accent)"></path>
+                    </marker>
+                    <marker id="unwindHead" viewBox="0 0 10 10" refX="2" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+                        <path d="M10 0 L0 5 L10 10 z" fill="var(--warn)"></path>
+                    </marker>
+                    <filter id="glow">
+                        <feGaussianBlur stdDeviation="4" result="coloredBlur" />
+                        <feMerge>
+                            <feMergeNode in="coloredBlur" />
+                            <feMergeNode in="SourceGraphic" />
+                        </feMerge>
+                    </filter>
+                </defs>
+                <rect x="40" y="40" width="520" height="320" rx="18" ry="18" fill="rgba(255,255,255,0.02)" stroke="rgba(255,255,255,0.05)" />
+                <circle id="fundingNode" cx="160" cy="300" r="18" fill="var(--muted)" filter="url(#glow)"></circle>
+                <text x="160" y="330" text-anchor="middle" fill="var(--muted)" font-size="12">Funding (JPY)</text>
+                <circle id="hyNode" cx="440" cy="200" r="20" fill="var(--accent)" filter="url(#glow)"></circle>
+                <text x="440" y="230" text-anchor="middle" fill="var(--accent)" font-size="12">High-yield</text>
+                <path id="carryArrow" d="M190 295 C250 270 350 230 410 210" stroke="url(#carryGradient)" stroke-width="8" fill="none" marker-end="url(#arrowHead)" />
+                <path id="unwindArrow" d="M410 210 C350 230 250 270 190 295" stroke="url(#unwindGradient)" stroke-width="6" fill="none" marker-end="url(#unwindHead)" opacity="0.25" />
+                <text id="riskNote" x="300" y="90" text-anchor="middle" fill="var(--muted)" font-size="12">Risk-on keeps carry intact</text>
+            </svg>
+        </div>
+    </div>
+
+    <div class="panel question-block">
+        <div class="question" id="prompt">Given this regime, what happens if risk wobbles?</div>
+        <div class="answers" id="answers"></div>
+        <div class="feedback" id="feedback"></div>
+    </div>
+
+<script>
+// Core state elements
+const rateInput = document.getElementById('rateDiff');
+const riskInput = document.getElementById('riskSentiment');
+const rateLabel = document.getElementById('rateLabel');
+const riskLabel = document.getElementById('riskLabel');
+const grossCarryEl = document.getElementById('grossCarry');
+const riskPenaltyEl = document.getElementById('riskPenalty');
+const adjustedCarryEl = document.getElementById('adjustedCarry');
+const carryScoreEl = document.getElementById('carryScore');
+const regimeBadge = document.getElementById('regime');
+const fundingNode = document.getElementById('fundingNode');
+const hyNode = document.getElementById('hyNode');
+const carryArrow = document.getElementById('carryArrow');
+const unwindArrow = document.getElementById('unwindArrow');
+const riskNote = document.getElementById('riskNote');
+const answersEl = document.getElementById('answers');
+const promptEl = document.getElementById('prompt');
+const feedbackEl = document.getElementById('feedback');
+
+// Prompt definitions keyed by regime
+const prompts = {
+    negative: {
+        question: "Carry turns hedge-like. How does HY behave if risk gaps wider?",
+        options: [
+            { text: "HY underperforms sharply; funding rallies", good: true, note: "Makes sense — negative carry plus stress pushes unwind.", },
+            { text: "HY grinds higher on yield alone", good: false, note: "Unlikely; yield can't offset de-risking when carry is negative." },
+        ]
+    },
+    neutral: {
+        question: "Tactical carry. What matters if vol picks up?",
+        options: [
+            { text: "Entry levels and stop discipline dominate", good: true, note: "Right — tactical carry needs tight risk control." },
+            { text: "Carry cushions all risk-off moves", good: false, note: "Carry helps, but tactical exposures are fragile to vol." },
+        ]
+    },
+    crowded: {
+        question: "Classic carry regime. What is the biggest tail?",
+        options: [
+            { text: "Positioning unwind if risk sours", good: true, note: "Correct — crowded carry can snap back on risk shocks." },
+            { text: "Funding leg squeeze higher on complacency", good: false, note: "JPY strength typically comes from risk-off, not euphoria." },
+            { text: "HY keeps rallying regardless of shocks", good: false, note: "Not realistic; shocks trigger carry de-risking." },
+        ]
+    },
+    stress: {
+        question: "Carry under stress. What's the playbook?",
+        options: [
+            { text: "Fade HY and expect funding to outperform", good: true, note: "Yes — unwind pressure favors the funding currency." },
+            { text: "Double down on HY leverage", good: false, note: "Risk-adjusted carry is deteriorating; leverage adds tail risk." },
+        ]
+    }
+};
+
+function classifyRegime(rate, risk) {
+    // Simple regime map: combine rate support and risk appetite
+    if (rate < 0 && risk < 50) return { key: 'negative', label: 'Negative / hedge-like carry', color: '#f48fb1' };
+    if (rate > 6 && risk > 65) return { key: 'crowded', label: 'Crowded, classic carry regime', color: '#7ee0c8' };
+    if (risk < 35 || rate < 1) return { key: 'stress', label: 'Carry under stress / unwind risk', color: '#f25f5c' };
+    return { key: 'neutral', label: 'Neutral / tactical carry', color: '#f4c95d' };
+}
+
+function updateScene() {
+    const rate = parseFloat(rateInput.value);
+    const risk = parseInt(riskInput.value, 10);
+    rateLabel.textContent = rate.toFixed(1) + '%';
+    riskLabel.textContent = risk;
+
+    // Carry mechanics
+    const grossCarry = rate;
+    const riskPenalty = (1 - (risk / 120)) * 3.2; // higher risk sentiment reduces penalty
+    const adjustedCarry = grossCarry - riskPenalty;
+    const carryScore = Math.max(0, Math.round((adjustedCarry + 4) * 9)); // simple score scaler
+
+    grossCarryEl.textContent = grossCarry.toFixed(1) + '%';
+    riskPenaltyEl.textContent = '-' + riskPenalty.toFixed(1) + '%';
+    adjustedCarryEl.textContent = adjustedCarry.toFixed(1) + '%';
+    carryScoreEl.textContent = carryScore;
+
+    const regime = classifyRegime(rate, risk);
+    regimeBadge.textContent = regime.label;
+    regimeBadge.style.color = regime.color;
+    regimeBadge.style.borderColor = regime.color + '55';
+
+    // Map rate differential to HY vertical offset (higher rate spreads lift HY)
+    const baseHY = 240;
+    const hyLift = rate * 5; // 1% rate differential lifts HY node by 5px
+    // Risk sentiment tilts HY: high risk-on lifts slightly, panic sinks
+    const riskTilt = (risk - 50) * 0.8;
+    const hyY = baseHY - hyLift - riskTilt;
+    hyNode.setAttribute('cy', hyY);
+    carryArrow.setAttribute('d', `M190 295 C250 270 350 ${hyY - 20} 410 ${hyY - 10}`);
+    unwindArrow.setAttribute('d', `M410 ${hyY - 10} C350 ${hyY + 10} 250 270 190 295`);
+
+    // Unwind arrow opacity increases when risk is low and carry is thin
+    const unwindStrength = Math.min(1, (50 - risk) / 40 + Math.max(0, 2 - rate) * 0.15);
+    unwindArrow.setAttribute('opacity', Math.max(0.12, unwindStrength));
+
+    // Adjust colors based on regime
+    const hyColor = regime.key === 'stress' ? '#f25f5c' : regime.key === 'crowded' ? '#4ecdc4' : '#9fc8ff';
+    hyNode.setAttribute('fill', hyColor);
+    hyNode.nextElementSibling.setAttribute('fill', hyColor);
+
+    riskNote.textContent = regime.key === 'crowded'
+        ? 'Carry stretched: watch positioning and risk-off gaps.'
+        : regime.key === 'stress'
+            ? 'Unwind pressure building — funding bids on stress.'
+            : regime.key === 'negative'
+                ? 'Negative carry acts like a hedge; little reward for risk.'
+                : 'Tactical zone: carry helps but requires discipline.';
+
+    updatePrompt(regime.key);
+}
+
+function updatePrompt(key) {
+    const prompt = prompts[key];
+    promptEl.textContent = prompt.question;
+    answersEl.innerHTML = '';
+    feedbackEl.textContent = '';
+    prompt.options.forEach(opt => {
+        const btn = document.createElement('button');
+        btn.className = 'answer-btn';
+        btn.textContent = opt.text;
+        btn.onclick = () => {
+            feedbackEl.textContent = opt.note;
+            feedbackEl.className = 'feedback ' + (opt.good ? 'good' : 'bad');
+        };
+        answersEl.appendChild(btn);
+    });
+}
+
+rateInput.addEventListener('input', updateScene);
+riskInput.addEventListener('input', updateScene);
+
+updateScene();
+</script>
+</body>
+</html>
